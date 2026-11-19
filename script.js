@@ -101,6 +101,7 @@ categoryGalleries.forEach(section => {
     const isShapedTeaLight =
       section.id === "tea-lights-gallery" &&
       (productNumber === 3 || productNumber === 4 || productNumber === 5);
+    const isDriedFlowers = section.id === "dried-flowers-gallery";
     const isPumpkinCandle =
       section.id === "candles-gallery" && productNumber === 4;
     const isCandleJar =
@@ -184,7 +185,9 @@ categoryGalleries.forEach(section => {
                                             ? "تي لايت معطر (الواحده)"
                                             : isShapedTeaLight
                                               ? "تي لايت اشكال (الواحده)"
-                                              : `${categoryName} ${new Intl.NumberFormat("ar-EG").format(productNumber)}`;
+                                              : isDriedFlowers
+                                                ? "ورد مجفف"
+                                                : `${categoryName} ${new Intl.NumberFormat("ar-EG").format(productNumber)}`;
     const fixedCandleJarPrices =
       section.id === "candles-gallery"
         ? { 1: 200, 2: 200, 3: 65, 4: 200 }
