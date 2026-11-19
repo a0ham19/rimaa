@@ -55,7 +55,8 @@ categoryGalleries.forEach(section => {
 
   const cards = images.map((image, imageIndex) => {
     productIndex++;
-    const productNumber = imageIndex + 1;
+    const originalProductNumber = Number(image.closest(".collection-photo")?.dataset.productNumber);
+    const productNumber = originalProductNumber || (imageIndex + 1);
     const isSmallWardrobeDiffuser =
       section.id === "diffusers-gallery" && productNumber >= 1 && productNumber <= 4;
     const isArabicBathroomDiffuser =
@@ -100,6 +101,22 @@ categoryGalleries.forEach(section => {
     const isShapedTeaLight =
       section.id === "tea-lights-gallery" &&
       (productNumber === 3 || productNumber === 4 || productNumber === 5);
+    const isPumpkinCandle =
+      section.id === "candles-gallery" && productNumber === 4;
+    const isCandleJar =
+      section.id === "candles-gallery" && productNumber === 3;
+    const isScentedCoconutVanillaJar =
+      section.id === "candles-gallery" && productNumber === 6;
+    const isScentedBerryJar =
+      section.id === "candles-gallery" && productNumber === 7;
+    const isBerryVanillaJar =
+      section.id === "candles-gallery" && productNumber === 8;
+    const isAmberVanillaJar =
+      section.id === "candles-gallery" && productNumber === 9;
+    const isStrawberryVanillaJar =
+      section.id === "candles-gallery" && productNumber === 10;
+    const isMuskJasmineJar =
+      section.id === "candles-gallery" && productNumber === 11;
     const localRoseVariants = [
       { label: "الكبيره", price: 65 },
       { label: "الصغيره", price: 27 }
@@ -109,8 +126,24 @@ categoryGalleries.forEach(section => {
       { label: "6 سحابات", price: 30 },
       { label: "الاثنين معًا", price: 60 }
     ];
-    const name = isSmallWardrobeDiffuser
-      ? "فواحات دولاب صغيرة"
+    const name = isCandleJar
+      ? "جار شمع"
+      : isPumpkinCandle
+        ? "شمعه اليقطينه"
+        : isScentedCoconutVanillaJar
+          ? "جار شمع معطر (جوز هند وفانيليا)"
+        : isScentedBerryJar
+          ? "جار شمع معطر (توت وفراوله)"
+        : isBerryVanillaJar
+          ? "جار شمع (توت و فانيليا)"
+        : isAmberVanillaJar
+          ? "جار شمع (عنبر وفانيليا)"
+        : isStrawberryVanillaJar
+          ? "جار شمع (فراوله وفانيليا)"
+        : isMuskJasmineJar
+          ? "جار شمع (مسك وياسمين)"
+        : isSmallWardrobeDiffuser
+        ? "فواحات دولاب صغيرة"
       : isArabicBathroomDiffuser
         ? "فواحات حمام عربيه"
         : isRoseDiffuser
@@ -156,7 +189,7 @@ categoryGalleries.forEach(section => {
       section.id === "candles-gallery"
         ? { 1: 200, 2: 200, 3: 65, 4: 200 }
         : null;
-    const candleJarNumber = imageIndex + 1;
+    const candleJarNumber = productNumber;
     const hasWeightVariants =
       section.id === "candles-gallery" && candleJarNumber >= 5 && candleJarNumber <= 11;
     const weightVariants = [
