@@ -11,15 +11,57 @@ const addFeedbackTimers = new WeakMap();
 let cartToastTimer = 0;
 
 function sanitizeCartQuantity(value) {
+  return parseCartQuantity(value) ?? 1;
+}
+
+function parseCartQuantity(value) {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && !value.trim()) return null;
   const quantity = Number(value);
-  return Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1;
+  return Number.isSafeInteger(quantity) && quantity > 0 ? quantity : null;
+}
+
+function addCartQuantities(first, second) {
+  const current = parseCartQuantity(first);
+  const added = parseCartQuantity(second);
+  if (current === null || added === null) return null;
+  return current > Number.MAX_SAFE_INTEGER - added
+    ? Number.MAX_SAFE_INTEGER
+    : current + added;
 }
 
 function sanitizeCartPrice(value) {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && !value.trim()) return null;
   const price = Number(value);
-  return Number.isFinite(price) && price >= 0
-    ? Math.round((price + Number.EPSILON) * 100) / 100
-    : null;
+  if (!Number.isFinite(price) || price < 0) return null;
+  const cents = Math.round((price + Number.EPSILON) * 100);
+  return Number.isSafeInteger(cents) ? cents / 100 : null;
+}
+
+function getCartItemKey(item) {
+  const productId = typeof item.productId === "string" ? item.productId.trim() : "";
+  const name = typeof item.name === "string" ? item.name.trim() : "";
+  return JSON.stringify([productId, name]);
+}
+
+function getCartItemCount(items = cart) {
+  return items.reduce((total, item) => {
+    const quantity = parseCartQuantity(item.quantity);
+    if (quantity === null) return total;
+    return total > Number.MAX_SAFE_INTEGER - quantity
+      ? Number.MAX_SAFE_INTEGER
+      : total + quantity;
+  }, 0);
+}
+
+function calculateCartSubtotal(items = cart) {
+  const total = items.reduce((sum, item) => {
+    const price = sanitizeCartPrice(item.priceNumber);
+    const quantity = parseCartQuantity(item.quantity);
+    return price === null || quantity === null ? sum : sum + price * quantity;
+  }, 0);
+  return Math.round((total + Number.EPSILON) * 100) / 100;
 }
 
 function loadCart() {
@@ -29,29 +71,34 @@ function loadCart() {
     const restored = new Map();
     stored.forEach(item => {
       if (!item || typeof item.name !== "string" || !item.name.trim()) return;
+      const productId = typeof item.productId === "string" ? item.productId.trim() : "";
+      if (!productId) return;
       const priceNumber = sanitizeCartPrice(item.priceNumber);
       if (priceNumber === null) return;
-      const quantity = sanitizeCartQuantity(item.quantity);
-      const key = `${item.name}|${item.productId || ""}`;
+      const quantity = parseCartQuantity(item.quantity);
+      if (quantity === null) return;
       const normalized = {
         ...item,
         name: item.name.trim(),
         price: formatCurrency(priceNumber),
         priceNumber,
         quantity,
+        productId,
         image: typeof item.image === "string" && item.image.trim()
           ? item.image
           : "assets/product3.jpg"
       };
+      const key = getCartItemKey(normalized);
       const existing = restored.get(key);
       if (existing) {
-        existing.quantity = sanitizeCartQuantity(existing.quantity + quantity);
+        existing.quantity = addCartQuantities(existing.quantity, quantity);
       } else {
         restored.set(key, normalized);
       }
     });
     return Array.from(restored.values());
-  } catch {
+  } catch (error) {
+    console.warn("Unable to load the saved cart; starting with an empty cart.", error);
     return [];
   }
 }
@@ -59,13 +106,50 @@ function loadCart() {
 function saveCart() {
   try {
     localStorage.setItem("rimaa-cart", JSON.stringify(cart));
-  } catch {
-    // The cart remains usable for this visit if storage is unavailable.
+  } catch (error) {
+    console.warn("Unable to save the cart to local storage.", error);
   }
 }
 
 const categoryGalleries = document.querySelectorAll(".category-gallery");
 const diffusersGrid = document.getElementById("diffusersGrid");
+const diffuserProductGroups = [
+  {
+    productNumbers: [1, 2, 3, 4],
+    name: "فواحة الدولاب الكبيرة 🌸",
+    price: 35,
+    descriptionKey: "wardrobe"
+  },
+  {
+    productNumbers: [5],
+    name: "فواحة الحمام أو العربية 🌸",
+    price: 65,
+    descriptionKey: "bathroom"
+  },
+  {
+    productNumbers: [6],
+    name: "فواحة الدولاب الصغيرة – وردة عباد الشمس 🌻",
+    price: 35,
+    descriptionKey: "sunflower"
+  },
+  {
+    productNumbers: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    name: "فواحات ورده",
+    price: 35
+  },
+  {
+    productNumbers: [18],
+    name: "فواحات ميني – قلب وسحابة ☁️❤️",
+    price: 30,
+    descriptionKey: "mini"
+  }
+];
+const candleholderProducts = {
+  1: { name: "شمعدان الثلاثه مع بعض", price: 120 },
+  2: { name: "شمعدان الثلاثه مع بعض", price: 120 },
+  3: { name: "شمعدان معدن", price: 150 },
+  4: { name: "شمعدان للسبوع (الواحده)", price: 45 }
+};
 for (let index = 1; index <= 18; index++) {
   const image = document.createElement("img");
   const photo = document.createElement("figure");
@@ -92,30 +176,17 @@ categoryGalleries.forEach(section => {
     "winter-gallery"
   ].includes(section.id);
   const images = Array.from(grid.querySelectorAll(".collection-photo img"));
-  const count = section.querySelector(".collection-count");
-  if (count) count.textContent = `${new Intl.NumberFormat("ar-EG").format(images.length)} منتج · أسعار تجريبية بالجنيه`;
-
   const cards = images.map((image, imageIndex) => {
     productIndex++;
     const originalProductNumber = Number(image.closest(".collection-photo")?.dataset.productNumber);
     const productNumber = originalProductNumber || (imageIndex + 1);
-    const isSmallWardrobeDiffuser =
-      section.id === "diffusers-gallery" && productNumber >= 1 && productNumber <= 4;
-    const isArabicBathroomDiffuser =
-      section.id === "diffusers-gallery" && productNumber === 5;
-    const isRoseDiffuser =
-      section.id === "diffusers-gallery" && productNumber >= 6 && productNumber <= 16;
-    const isNamedRoseDiffuser =
-      section.id === "diffusers-gallery" && productNumber >= 6 && productNumber <= 17;
-    const isMiniDiffuser =
-      section.id === "diffusers-gallery" && productNumber === 18;
-    const isThreeCandleholders =
-      section.id === "candleholders-gallery" &&
-      (productNumber === 1 || productNumber === 2);
-    const isMetalCandleholder =
-      section.id === "candleholders-gallery" && productNumber === 3;
-    const isSingleSevouCandleholder =
-      section.id === "candleholders-gallery" && productNumber === 4;
+    const diffuserProduct = section.id === "diffusers-gallery"
+      ? diffuserProductGroups.find(group => group.productNumbers.includes(productNumber))
+      : null;
+    const candleholderProduct = section.id === "candleholders-gallery"
+      ? candleholderProducts[productNumber]
+      : null;
+    const isMiniDiffuser = diffuserProduct?.descriptionKey === "mini";
     const isSingleRoseCandle =
       section.id === "flower-candles-gallery" && productNumber === 1;
     const isJouriGiftBoxCandle =
@@ -138,6 +209,12 @@ categoryGalleries.forEach(section => {
       section.id === "tea-lights-gallery" && productNumber === 1;
     const isScentedTeaLight =
       section.id === "tea-lights-gallery" && productNumber === 2;
+    const isRoseTeaLight =
+      section.id === "tea-lights-gallery" && productNumber === 3;
+    const isHeartTeaLight =
+      section.id === "tea-lights-gallery" && productNumber === 4;
+    const isButterflyTeaLight =
+      section.id === "tea-lights-gallery" && productNumber === 5;
     const isShapedTeaLight =
       section.id === "tea-lights-gallery" &&
       (productNumber === 3 || productNumber === 4 || productNumber === 5);
@@ -167,64 +244,57 @@ categoryGalleries.forEach(section => {
       { label: "6 سحابات", price: 30 },
       { label: "الاثنين معًا", price: 60 }
     ];
+    const mappedCategoryProductName = diffuserProduct?.name || candleholderProduct?.name;
     const name = isCandleJar
-      ? "جار شمع"
+      ? "جار معطر 30 جرام 🕯️"
       : isPumpkinCandle
-        ? "شمعه اليقطينه"
+        ? "شمعة جار اليقطينة – كونكريت 🎃"
         : isScentedCoconutVanillaJar
-          ? "جار شمع معطر (جوز هند وفانيليا)"
+          ? "جار شمع معطر – جوز الهند والفانيليا 🥥"
         : isScentedBerryJar
-          ? "جار شمع معطر (توت وفراوله)"
+          ? "جار شمع معطر – التوت والفراولة 🍓"
         : isBerryVanillaJar
-          ? "جار شمع (توت و فانيليا)"
+          ? "جار شمع معطر – التوت والفانيليا 🫐"
         : isAmberVanillaJar
-          ? "جار شمع (عنبر وفانيليا)"
+          ? "جار شمع معطر – العنبر والفانيليا 🤎"
         : isStrawberryVanillaJar
-          ? "جار شمع (فراوله وفانيليا)"
+          ? "جار شمع معطر – الفراولة والفانيليا 🍓"
         : isMuskJasmineJar
-          ? "جار شمع (مسك وياسمين)"
-        : isSmallWardrobeDiffuser
-        ? "فواحات دولاب كبيرة"
-      : isArabicBathroomDiffuser
-        ? "فواحات حمام/عربيه"
-        : isRoseDiffuser
-          ? "فواحات ورده"
-          : isNamedRoseDiffuser
-            ? "فواحات ورده"
-            : isMiniDiffuser
-              ? "فواحات ميني للشنط التخزين / الادراج"
-              : isThreeCandleholders
-                ? "شمعدان الثلاثه مع بعض"
-                : isMetalCandleholder
-                  ? "شمعدان معدن"
-                  : isSingleSevouCandleholder
-                    ? "شمعدان للسبوع (الواحده)"
-                    : isSingleRoseCandle
-                      ? "شمع ورده (الواحده)"
-                      : isJouriGiftBoxCandle
-                        ? "شمعه جوري بعلبه هدايا"
+          ? "جار شمع معطر – المسك والياسمين 🤍"
+        : mappedCategoryProductName
+          ? mappedCategoryProductName
+          : isJouriGiftBoxCandle
+            ? "شمعة وردة الجوري في علبة هدايا 🌹"
+          : isSingleRoseCandle
+                      ? "شمعة وردة الكرومبة 🌷"
                         : isJouriRoseCandle
-                          ? "ورده جوري"
+                          ? "شمعة وردة الجوري 🌹"
                           : isSunflowerRoseCandle
-                            ? "شمعه ورده عباد الشمس (الوحده)"
+                              ? "شمعة وردة عباد الشمس 🌻"
                             : isTulipRoseCandle
-                              ? "ورده التوليب (الوحده)"
+                              ? "شمعة وردة التوليب 🌷"
                               : isLocalRoseCandle
-                                ? "ورده بلدي"
+                                ? "شمعة الورد البلدي 🌹"
                                 : isSmallBubblesCandle
-                                  ? "شمع بابلز صغيره (الوحده)"
+                                  ? "شمعة بابلز الصغيرة 🫧"
                                   : isElephantCandle
-                                    ? "شمع فيييله فلفوله"
+                                    ? "شمعة الفيلة 🐘"
                                     : isLargeBubblesCandle
-                                        ? "شمع بابلز كبير"
+                                        ? "شمعة بابلز الكبيرة 🫧"
                                         : isSingleTeaLight
-                                          ? "تي لايت (الواحده)"
+                                          ? "شمعة تي لايت مدوّرة – أبيض (غير معطرة) 🤍"
                                           : isScentedTeaLight
-                                            ? "تي لايت معطر (الواحده)"
-                                            : isShapedTeaLight
+                                              ? "شمعة تي لايت مدوّرة معطرة – أحمر ❤️"
+                                              : isRoseTeaLight
+                                                ? "شمعة تي لايت بشكل وردة – معطرة 🌸"
+                                                : isHeartTeaLight
+                                                  ? "شمعة تي لايت بشكل قلب – معطرة ❤️"
+                                                    : isButterflyTeaLight
+                                                      ? "شمعة تي لايت بشكل فراشة – معطرة 🦋"
+                                                      : isShapedTeaLight
                                               ? "تي لايت اشكال (الواحده)"
                                               : isDriedFlowers
-                                                ? "ورد مجفف"
+                                                ? "الورد المجفف 👀"
                                                 : `${categoryName} ${new Intl.NumberFormat("ar-EG").format(productNumber)}`;
     const fixedCandleJarPrices =
       section.id === "candles-gallery"
@@ -247,6 +317,10 @@ categoryGalleries.forEach(section => {
       ? weightVariants[0].price
       : isLocalRoseCandle
         ? localRoseVariants[0].price
+      : diffuserProduct?.price !== undefined
+        ? diffuserProduct.price
+      : candleholderProduct
+        ? candleholderProduct.price
       : isSmallBubblesCandle
         ? 55
       : isElephantCandle
@@ -259,14 +333,6 @@ categoryGalleries.forEach(section => {
         ? 30
       : isShapedTeaLight
         ? 35
-      : isMiniDiffuser
-        ? miniDiffuserVariants[0].price
-      : isThreeCandleholders
-        ? 120
-      : isMetalCandleholder
-        ? 150
-      : isSingleSevouCandleholder
-        ? 45
       : isSingleRoseCandle
         ? 20
       : isJouriGiftBoxCandle
@@ -279,15 +345,9 @@ categoryGalleries.forEach(section => {
         ? 35
       : section.id === "dried-flowers-gallery"
         ? 30
-        : isSmallWardrobeDiffuser
-          ? 35
-          : isArabicBathroomDiffuser
-            ? 65
-            : isRoseDiffuser
-              ? 35
-              : candleJarPrice
-                ? candleJarPrice
-                : 100 + ((productIndex - 1) % 8) * 25;
+        : candleJarPrice
+          ? candleJarPrice
+          : 100 + ((productIndex - 1) % 8) * 25;
     const card = document.createElement("article");
     const imageWrapper = document.createElement("div");
     const info = document.createElement("div");
@@ -306,6 +366,114 @@ categoryGalleries.forEach(section => {
     card.dataset.price = String(priceNumber);
     card.dataset.productId = productId;
     card.dataset.categoryGallery = section.id;
+    if (diffuserProduct?.descriptionKey === "wardrobe") {
+      card.dataset.description =
+        "الوصف: قطعة معطرة تُستخدم لتعطير الدولاب والحفاظ على رائحة الملابس والمفروشات منعشة ومعطرة.\n\nطريقة الاستخدام: توضع داخل الدولاب أو بين الملابس، وتُترك لتعطير المساحة المحيطة بها.\n\nمميزاتها: تساعد على انتشار الرائحة داخل الدولاب، وتمنح ملابسك رائحة لطيفة كلما فتحتيه.";
+    }
+    if (diffuserProduct?.descriptionKey === "bathroom") {
+      card.dataset.description =
+        "الوصف: فواحة معطرة بحجم عملي، مناسبة لتعطير الحمام أو السيارة، وتتميز برائحة واضحة ومنتشرة ممكن توصل لباقي أرجاء البيت.\n\nطريقة الاستخدام: توضع في الحمام أو داخل السيارة في مكان ثابت ومناسب.\n\nمميزاتها: مش بس للحمام أو العربية، ريحتها ممكن تنتشر في البيت كله حسب مساحة المكان والتهوية.";
+    }
+    if (diffuserProduct?.descriptionKey === "sunflower") {
+      card.dataset.description =
+        "الوصف: فواحة معطرة بتصميم وردة عباد الشمس، تجمع بين الشكل اللطيف والرائحة المميزة، وتضيف لمسة جمالية لدولابك.\n\nطريقة الاستخدام: توضع داخل الدولاب أو بين الملابس لتعطير المساحة المحيطة بها.\n\nمميزاتها: حجم صغير وعملي، مناسب للدولاب والأدراج والمساحات الصغيرة.";
+    }
+    if (isMiniDiffuser) {
+      card.dataset.description =
+        "الوصف: فواحات معطرة صغيرة بأشكال لطيفة، مناسبة لتعطير الشنط والأدراج ووحدات التخزين والمساحات الصغيرة.\n\nطريقة الاستخدام: توضع داخل الشنطة أو الدرج أو مكان التخزين لتعطيره وإضافة رائحة جميلة لمحتوياته.\n\nمميزاتها: حجم صغير وعملي، تجمع بين التعطير والشكل الكيوت.";
+    }
+    if (isDriedFlowers) {
+      card.dataset.description =
+        "الوصف: لمسة جمالية بسيطة تضيف رقة وأناقة لأي مكان، ومناسب لتزيين السفرة في العشاء الرومانسي وأعياد الميلاد والمناسبات المختلفة.\n\nالاستخدامات:\n\n- تزيين السفرة والديكورات الرومانسية.\n- تنسيق أعياد الميلاد والمناسبات.\n- إضافة لمسة جمالية لتصوير المنتجات.";
+    }
+    if (isSingleRoseCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم وردة الكرومبة المميز، تجمع بين شكل الوردة الطبيعي والتفاصيل الرقيقة، لتكون قطعة ديكور لطيفة تضيف لمسة جمالية لأي مكان.\n\nالاستخدام: مناسبة للديكور والهدايا، ويمكن إشعالها للاستمتاع بإضاءة دافئة وأجواء هادئة.";
+    }
+    if (isJouriGiftBoxCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم وردة الجوري بتفاصيلها الرقيقة وبتلاتها المتناسقة، تجمع بين جمال الورد والإضاءة الدافئة، وتضيف لمسة أنيقة لأي ركن.\n\nالاستخدام: مناسبة للديكور والهدايا والمناسبات المميزة، ويمكن إشعالها لإضفاء أجواء هادئة ولطيفة.";
+    }
+    if (isJouriRoseCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم وردة الجوري بتفاصيلها الرقيقة وبتلاتها المتناسقة، تجمع بين جمال الورد والإضاءة الدافئة، وتضيف لمسة أنيقة لأي ركن.\n\nالاستخدام: مناسبة للديكور والهدايا والمناسبات المميزة، ويمكن إشعالها لإضفاء أجواء هادئة ولطيفة.";
+    }
+    if (isSunflowerRoseCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم وردة عباد الشمس، بتفاصيل جميلة تضيف لمسة مبهجة ومميزة للديكور.\n\nالاستخدامات:\n\n- تزيين البانيو لإضافة أجواء رومانسية وهادية.\n- استخدامها بدلًا من شموع التي لايت في تزيين السفرة.\n- مناسبة للهدايا وتنسيقات المناسبات.";
+    }
+    if (isTulipRoseCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم زهرة التوليب الرقيقة، بتفاصيل بسيطة وأنيقة تجمع بين جمال الورد ولمسة الديكور المميزة.\n\nالاستخدامات:\n\n- تزيين أركان البيت وإضافة لمسة رقيقة.\n- مناسبة للهدايا والمناسبات المختلفة.\n- استخدامها في تنسيق السفرة والديكورات الرومانسية.";
+    }
+    if (isLocalRoseCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم الوردة البلدي بتفاصيل بتلاتها الطبيعية، تجمع بين البساطة والرقة، وتضيف لمسة وردية أنيقة لأي مكان.\n\nالأحجام المتاحة:\n\n- حجم كبير.\n- حجم صغير.\n\nالاستخدام: مناسبة للديكور والهدايا وتنسيق المناسبات، ويمكن استخدامها لإضافة أجواء دافئة ومميزة.";
+    }
+    if (isSmallBubblesCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم فقاعات متناسقة، بشكل عصري وبسيط يضيف لمسة ديكورية مميزة لأي ركن.\n\nالاستخدام: مناسبة لتزيين الغرف والمكاتب، وتنسيق الهدايا والبوكسات والمناسبات المختلفة.";
+    }
+    if (isElephantCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم فيل لطيف ومميز، بتفاصيل رقيقة تضيف لمسة مرحة وجميلة للديكور.\n\nالاستخدام: مناسبة لهدايا استقبال المولود والسبوع، وتزيين غرف الأطفال وتنسيق البوكسات والهدايا.";
+    }
+    if (isLargeBubblesCandle) {
+      card.dataset.description =
+        "الوصف: شمعة بتصميم الفقاعات المميز بحجم أكبر، تجمع بين الشكل العصري والأناقة، وتعتبر قطعة ديكورية تلفت الانتباه وتضيف لمسة مختلفة للمكان.\n\nالاستخدام: مناسبة لتزيين أركان البيت والمكاتب، وتنسيق الهدايا والبوكسات والمناسبات.";
+    }
+    if (isSingleTeaLight) {
+      card.dataset.description =
+        "الوصف: شمعة صغيرة بتصميم دائري بسيط ولون أبيض كلاسيكي، مناسبة للإضاءة والديكور دون إضافة أي رائحة عطرية.\n\nالاستخدام: مناسبة للشمعدانات والفوانيس، وتزيين السفرة والبانيو والديكورات الرومانسية والمناسبات المختلفة.\n\nمميزاتها: اختيار مثالي للي بيفضلوا الإضاءة الهادية بدون عطور.";
+    }
+    if (isScentedTeaLight) {
+      card.dataset.description =
+        "الوصف: شمعة تي لايت صغيرة باللون الأحمر، بتصميم بسيط وأنيق، تجمع بين الإضاءة الهادئة والرائحة العطرية اللطيفة.\n\nالاستخدام: مناسبة للاستخدام في الشمعدانات والفوانيس، وتزيين السفرة والديكورات الرومانسية والمناسبات المختلفة.\n\nمميزاتها: تضيف لمسة من الدفء واللون للمكان، مع رائحة عطرية مميزة.";
+    }
+    if (isRoseTeaLight) {
+      card.dataset.description =
+        "الوصف: شمعة تي لايت بتصميم وردة رقيق، تجمع بين الشكل الجمالي والإضاءة الهادئة مع رائحة عطرية لطيفة.\n\nالاستخدام: مناسبة للشمعدانات وتزيين السفرة والديكورات الرومانسية، وكمان لإضافة لمسة مميزة للهدايا والمناسبات.\n\nمميزاتها: شكل وردة أنيق يجمع بين التعطير والديكور في قطعة واحدة.";
+    }
+    if (isHeartTeaLight) {
+      card.dataset.description =
+        "الوصف: شمعة تي لايت بتصميم قلب رقيق، تجمع بين الشكل الرومانسي والإضاءة الهادئة مع رائحة عطرية لطيفة.\n\nالاستخدام: مناسبة لتزيين السفرة في المناسبات الرومانسية، وتنسيق الهدايا والبوكسات، وإضافة لمسة مميزة للديكور.\n\nمميزاتها: تصميم لطيف يجمع بين الرائحة العطرية والأجواء الرومانسية.";
+    }
+    if (isButterflyTeaLight) {
+      card.dataset.description =
+        "الوصف: شمعة تي لايت بتصميم فراشة رقيق ومميز، تجمع بين الشكل اللطيف والإضاءة الهادئة مع رائحة عطرية جميلة.\n\nالاستخدام: مناسبة لتزيين السفرة والديكورات، وتنسيق الهدايا والبوكسات والمناسبات المختلفة.\n\nمميزاتها: تصميم مختلف يضيف لمسة رقيقة ومبهجة لأي مكان.";
+    }
+    if (isCandleJar) {
+      card.dataset.description =
+        "حجم صغير وعملي، مناسب للتوزيعات والهدايا، وكمان مثالي لتجربة أي عطر قبل اختيار الحجم الأكبر. يُستخدم لتعطير المساحات المناسبة لحجمه. ❤️";
+    }
+    if (isPumpkinCandle) {
+      card.dataset.description =
+        "الوزن: 80 جرام.\n\nالوصف: شمعة معطرة داخل جار كونكريت بتصميم اليقطينة، تجمع بين الرائحة المميزة والشكل الديكوري الأنيق.\n\nالعطر: اختاري العطر المفضل ليكي من الروائح المتاحة.\n\nالاستخدام: لتعطير المكان وإضافة لمسة جمالية لديكور البيت.\n\nميزة إضافية: بعد انتهاء الشمعة، تقدري تعيدي استخدام الجار كمنظّم للإكسسوارات أو الأدوات الصغيرة.";
+    }
+    if (isScentedCoconutVanillaJar) {
+      card.dataset.description =
+        "الوصف: مزيج دافئ وناعم من جوز الهند الكريمي والفانيليا الحلوة، برائحة هادية ومريحة تفكّرك بأجواء الحلويات والحليب الكريمي وأجواء شهر رمضان المبارك.\n\nالحجم: اختاري الحجم المناسب ليكي من الأحجام المتاحة.\n\nالاستخدام: يُستخدم لتعطير المكان وإضافة أجواء دافئة ومميزة للبيت.";
+    }
+    if (isScentedBerryJar) {
+      card.dataset.description =
+        "الوصف: من الروائح الشوجري (الحلوة)، مزيج فاكهي يجمع بين حلاوة الفراولة ولمسة التوت الغنية، برائحة سكرية منعشة تشبه حلوى الفواكه الحمراء.\n\nالحجم: اختاري الحجم المناسب ليكي من الأحجام المتاحة.\n\nالاستخدام: يُستخدم في الفواحة لتعطير المكان وإضافة رائحة حلوة ومميزة.";
+    }
+    if (isBerryVanillaJar) {
+      card.dataset.description =
+        "الوصف: من الروائح الشوجري الهادية، مزيج بين حلاوة التوت الفاكهية ونعومة الفانيليا الكريمية، برائحة سكرية رقيقة ومتوازنة من غير ما تكون حادة أو تقيلة.\n\nالحجم: اختاري الحجم المناسب ليكي من الأحجام المتاحة.\n\nالاستخدام: يُستخدم في تعطير المكان وإضافة لمسة حلوة وهادية.";
+    }
+    if (isStrawberryVanillaJar) {
+      card.dataset.description =
+        "الوصف: من الروائح الشوجري الهادية، مزيج يجمع بين حلاوة الفراولة الفاكهية ونعومة الفانيليا الكريمية، برائحة سكرية رقيقة ودافئة تشبه حلوى الفراولة بالفانيليا.\n\nالحجم: اختاري الحجم المناسب ليكي من الأحجام المتاحة.\n\nالاستخدام: يُستخدم في تعطير المكان وإضافة لمسة حلوة وناعمة.";
+    }
+    if (isAmberVanillaJar) {
+      card.dataset.description =
+        "الوصف: من الروائح الدافئة والشرقية، مزيج يجمع بين عمق العنبر ولمسة الفانيليا الكريمية الحلوة، برائحة ناعمة وغنية فيها إحساس بالفخامة والهدوء.\n\nالحجم: اختاري الحجم المناسب ليكي من الأحجام المتاحة.\n\nالاستخدام: يُستخدم في الفواحة لتعطير المكان وإضافة أجواء دافئة ومميزة.\n\nاقتراح هدية: اختيار لطيف ومختلف لهدية خطيبك أو زوجك أو أخوكي، وكمان هدية مناسبة لمكتب العمل.";
+    }
+    if (isMuskJasmineJar) {
+      card.dataset.description =
+        "الوصف: من الروائح الهادية والناعمة، مزيج يجمع بين نظافة المسك ونعومة زهور الياسمين، برائحة زهرية منعشة ونظيفة فيها إحساس بالانتعاش والراحة.\n\nالحجم: اختاري الحجم المناسب ليكي من الأحجام المتاحة.\n\nالاستخدام: يُستخدم في تعطير المكان وإضافة أجواء منعشة وهادية.";
+    }
     imageWrapper.className = "product-image";
     info.className = "product-info";
     type.textContent = categoryName;
@@ -356,6 +524,10 @@ categoryGalleries.forEach(section => {
           option.setAttribute("aria-pressed", "true");
           card.dataset.price = variant.price;
           card.dataset.grams = variant.grams;
+          selectedProductVariants.set(card.dataset.productId, {
+            grams: String(variant.grams),
+            option: ""
+          });
           price.textContent = formatCurrency(variant.price);
           applyCatalogFilters();
         });
@@ -388,6 +560,10 @@ categoryGalleries.forEach(section => {
           option.setAttribute("aria-pressed", "true");
           card.dataset.price = String(variant.price);
           card.dataset.option = variant.label;
+          selectedProductVariants.set(card.dataset.productId, {
+            grams: "",
+            option: variant.label
+          });
           price.textContent = formatCurrency(variant.price);
           applyCatalogFilters();
         });
@@ -420,6 +596,10 @@ categoryGalleries.forEach(section => {
           option.setAttribute("aria-pressed", "true");
           card.dataset.price = String(variant.price);
           card.dataset.option = variant.label;
+          selectedProductVariants.set(card.dataset.productId, {
+            grams: "",
+            option: variant.label
+          });
           price.textContent = formatCurrency(variant.price);
           applyCatalogFilters();
         });
@@ -473,11 +653,23 @@ Array.from(new Set(catalogCards.map(card => card.dataset.categoryGallery)))
   });
 
 function normalizeCatalogText(value) {
-  return String(value || "")
+  return String(value ?? "")
     .normalize("NFKC")
     .toLocaleLowerCase("ar")
     .trim()
     .replace(/\s+/g, " ");
+}
+
+function getCatalogSearchText(card) {
+  return [
+    card.dataset.name,
+    card.querySelector(".product-info > p")?.textContent,
+    card.dataset.scent,
+    card.dataset.description
+  ]
+    .map(normalizeCatalogText)
+    .filter(Boolean)
+    .join(" ");
 }
 
 function readPriceFilter(input) {
@@ -541,10 +733,7 @@ function applyCatalogFilters({ animate = true } = {}) {
   const matchingCards = [];
 
   catalogCards.forEach(card => {
-    const name = normalizeCatalogText(card.dataset.name);
-    const category = normalizeCatalogText(card.querySelector(".product-info > p")?.textContent);
-    const scent = normalizeCatalogText(card.dataset.scent);
-    const searchableText = `${name} ${category} ${scent}`;
+    const searchableText = getCatalogSearchText(card);
     const rawPrice = getCatalogPrice(card);
     const validPrice = rawPrice !== null;
     const matchesSearch = queryTerms.every(term => searchableText.includes(term));
@@ -782,7 +971,7 @@ if ("IntersectionObserver" in window && !reducedMotion.matches) {
   }, { threshold: 0.12, rootMargin: "0px 0px -36px 0px" });
 
   document.querySelectorAll(
-    ".section-heading > p, .section-heading > h2, .row-heading > .text-link, .trust-strip > div, .category-card, .bestseller-category, .product-card, .collection-heading .section-heading > p, .collection-heading .section-heading > h2, .collection-count, .collection-photo, .story-image, .story-content > *, .footer > div"
+    ".section-heading > p, .section-heading > h2, .row-heading > .text-link, .trust-strip > div, .category-card, .bestseller-category, .product-card, .collection-heading .section-heading > p, .collection-heading .section-heading > h2, .collection-photo, .story-image, .story-content > *, .footer > div"
   ).forEach(element => {
     const siblingIndex = Array.from(element.parentElement.children).indexOf(element);
     element.classList.add("reveal");
@@ -996,13 +1185,48 @@ let activeProductCard = null;
 let activeProductVariant = {};
 let productReturnContext = null;
 let movedRelatedCards = [];
+const selectedProductVariants = new Map();
+let productDetailAddCooldown = false;
+let productDetailAddCooldownTimer = 0;
+
+function getProductVariant(card, option = null) {
+  const grams = option
+    ? option.dataset.grams || ""
+    : card.dataset.grams || "";
+  const variantOption = option
+    ? option.dataset.option || ""
+    : card.dataset.option || "";
+  if (option && !grams && !variantOption) return null;
+  if (grams && (!Number.isSafeInteger(Number(grams)) || Number(grams) <= 0)) return null;
+  const priceNumber = sanitizeCartPrice(option ? option.dataset.price : card.dataset.price);
+  if (priceNumber === null) return null;
+  return { grams, option: variantOption, priceNumber };
+}
+
+function canAddProductDetailToCart() {
+  return Boolean(
+    activeProductCard &&
+    typeof activeProductCard.dataset.productId === "string" &&
+    activeProductCard.dataset.productId.trim() &&
+    typeof activeProductCard.dataset.name === "string" &&
+    activeProductCard.dataset.name.trim() &&
+    activeProductVariant &&
+    sanitizeCartPrice(activeProductVariant.priceNumber) !== null &&
+    parseCartQuantity(productDetailQuantity.textContent) !== null
+  );
+}
+
+function updateProductDetailAddButton() {
+  productDetailAdd.disabled = productDetailAddCooldown || !canAddProductDetailToCart();
+}
 
 function restoreRelatedCards() {
   movedRelatedCards
     .sort((a, b) => a.index - b.index)
-    .forEach(({ card, parent, index, wasVisible }) => {
+    .forEach(({ card, parent, index, wasVisible, display }) => {
       const before = Array.from(parent.children).filter(child => child !== card)[index] || null;
       parent.insertBefore(card, before);
+      card.style.display = display;
       if (!wasVisible) card.classList.remove("is-visible");
     });
   movedRelatedCards = [];
@@ -1026,8 +1250,7 @@ function showRelatedProducts(card) {
   const relatedCards = catalogCards
     .filter(related =>
       related.dataset.categoryGallery === card.dataset.categoryGallery &&
-      related.dataset.productId !== card.dataset.productId &&
-      related.style.display !== "none"
+      related.dataset.productId !== card.dataset.productId
     )
     .slice(0, 4);
   const relatedGrid = document.getElementById("relatedProductsGrid");
@@ -1038,7 +1261,8 @@ function showRelatedProducts(card) {
       card: related,
       parent,
       index: Array.from(parent.children).indexOf(related),
-      wasVisible: related.classList.contains("is-visible")
+      wasVisible: related.classList.contains("is-visible"),
+      display: related.style.display
     };
   });
   relatedRecords.forEach(record => {
@@ -1046,6 +1270,7 @@ function showRelatedProducts(card) {
     movedRelatedCards.push({
       ...record
     });
+    related.style.display = "";
     related.classList.add("is-visible");
     relatedGrid.append(related);
     related.querySelectorAll(".reveal").forEach(element => revealObserver?.observe(element));
@@ -1056,64 +1281,105 @@ function showRelatedProducts(card) {
 function renderProductDetails(productId) {
   restoreRelatedCards();
   activeProductCard = getProductCard(productId);
+  const name = typeof activeProductCard?.dataset.name === "string"
+    ? activeProductCard.dataset.name.trim()
+    : "";
+  const productAvailable = Boolean(activeProductCard && name);
+  if (!productAvailable) activeProductCard = null;
   productDetailPage.hidden = false;
-  productDetailContent.hidden = !activeProductCard;
-  productNotFound.hidden = Boolean(activeProductCard);
+  productDetailContent.hidden = !productAvailable;
+  productNotFound.hidden = productAvailable;
   document.body.classList.remove("category-view");
   document.body.classList.add("product-view");
 
-  if (!activeProductCard) {
+  if (!productAvailable) {
+    activeProductVariant = null;
+    productDetailAdd.disabled = true;
     productNotFound.querySelector("h1").focus({ preventScroll: true });
     return;
   }
 
-  const name = activeProductCard.dataset.name;
   const image = activeProductCard.querySelector(".product-image img");
-  const category = activeProductCard.querySelector(".product-info > p").textContent;
+  const category = activeProductCard.querySelector(".product-info > p")?.textContent.trim() || "";
   const categoryLink = document.getElementById("productCategoryLink");
   const categoryGallery = activeProductCard.dataset.categoryGallery;
   const sourceOptions = Array.from(activeProductCard.querySelectorAll(".weight-options .weight-option"));
-  const selectedOption = sourceOptions.find(option => option.classList.contains("active"));
+  const cardProductId = activeProductCard.dataset.productId;
+  const savedVariant = selectedProductVariants.get(cardProductId);
+  const selectedOption = sourceOptions.find(option =>
+    savedVariant &&
+    (option.dataset.grams || "") === savedVariant.grams &&
+    (option.dataset.option || "") === savedVariant.option
+  ) || sourceOptions.find(option => option.classList.contains("active"));
 
   document.getElementById("productDetailTitle").textContent = name;
   document.getElementById("productBreadcrumbName").textContent = name;
-  document.getElementById("productDetailCategory").textContent = category;
+  const productDetailCategory = document.getElementById("productDetailCategory");
+  productDetailCategory.textContent = category;
+  productDetailCategory.hidden = !category;
   categoryLink.textContent = category;
-  categoryLink.href = `#${categoryGallery}`;
-  productDetailImage.alt = image.alt || name;
+  categoryLink.href = categoryGallery ? `#${categoryGallery}` : "#products";
+  categoryLink.hidden = !category;
+  categoryLink.nextElementSibling.hidden = !category;
+  const imageSource = image?.getAttribute("src")?.trim() || "";
+  productDetailImage.alt = image?.alt?.trim() || name;
   productDetailImage.classList.remove("image-unavailable");
-  productMainImage.disabled = false;
-  productDetailImage.src = image.getAttribute("src");
+  productMainImage.disabled = true;
+  productMainImage.setAttribute(
+    "aria-label",
+    imageSource ? `عرض صورة ${name} بحجم أكبر` : `صورة ${name} غير متاحة`
+  );
+  productDetailImage.hidden = true;
+  productDetailImage.removeAttribute("src");
+  if (imageSource) {
+    productDetailImage.setAttribute("src", imageSource);
+  } else {
+    productMainImage.classList.add("image-unavailable");
+  }
   productDetailQuantity.textContent = "1";
   productDetailOptions.replaceChildren();
   productDetailOptions.hidden = sourceOptions.length === 0;
 
-  activeProductVariant = {
-    grams: selectedOption?.dataset.grams || activeProductCard.dataset.grams || "",
-    option: selectedOption?.dataset.option || activeProductCard.dataset.option || "",
-    priceNumber: Number(selectedOption?.dataset.price || activeProductCard.dataset.price)
-  };
-  document.getElementById("productDetailPrice").textContent = formatCurrency(activeProductVariant.priceNumber);
+  activeProductVariant = sourceOptions.length
+    ? selectedOption ? getProductVariant(activeProductCard, selectedOption) : null
+    : getProductVariant(activeProductCard);
+  const productDetailPrice = document.getElementById("productDetailPrice");
+  productDetailPrice.textContent = activeProductVariant
+    ? formatCurrency(activeProductVariant.priceNumber)
+    : "";
+  productDetailPrice.hidden = !activeProductVariant;
+  const productDescription = document.getElementById("productDetailDescription");
+  const description = activeProductCard.dataset.description?.trim() || "";
+  productDescription.textContent = description;
+  productDescription.hidden = !description;
+  updateProductDetailAddButton();
 
   if (sourceOptions.length) {
     productDetailOptions.setAttribute("role", "group");
     productDetailOptions.setAttribute("aria-label", `خيارات ${name}`);
     sourceOptions.forEach(sourceOption => {
       const option = sourceOption.cloneNode(true);
-      option.setAttribute("aria-pressed", sourceOption === selectedOption ? "true" : "false");
+      const isSelected = sourceOption === selectedOption;
+      option.classList.toggle("active", isSelected);
+      option.setAttribute("aria-pressed", isSelected ? "true" : "false");
+      option.disabled = getProductVariant(activeProductCard, sourceOption) === null;
       option.addEventListener("click", () => {
+        const variant = getProductVariant(activeProductCard, option);
+        if (!variant) return;
         productDetailOptions.querySelectorAll(".weight-option").forEach(button => {
           button.classList.remove("active");
           button.setAttribute("aria-pressed", "false");
         });
         option.classList.add("active");
         option.setAttribute("aria-pressed", "true");
-        activeProductVariant = {
-          grams: option.dataset.grams || "",
-          option: option.dataset.option || "",
-          priceNumber: Number(option.dataset.price)
-        };
-        document.getElementById("productDetailPrice").textContent = formatCurrency(activeProductVariant.priceNumber);
+        activeProductVariant = variant;
+        selectedProductVariants.set(cardProductId, {
+          grams: variant.grams,
+          option: variant.option
+        });
+        productDetailPrice.textContent = formatCurrency(variant.priceNumber);
+        productDetailPrice.hidden = false;
+        updateProductDetailAddButton();
       });
       productDetailOptions.append(option);
     });
@@ -1232,10 +1498,16 @@ document.getElementById("productCategoryLink").addEventListener("click", event =
 });
 
 document.getElementById("productQuantityDecrease").addEventListener("click", () => {
-  productDetailQuantity.textContent = String(Math.max(1, Number(productDetailQuantity.textContent) - 1));
+  const quantity = sanitizeCartQuantity(productDetailQuantity.textContent);
+  productDetailQuantity.textContent = String(Math.max(1, quantity - 1));
+  updateProductDetailAddButton();
 });
 document.getElementById("productQuantityIncrease").addEventListener("click", () => {
-  productDetailQuantity.textContent = String(Number(productDetailQuantity.textContent) + 1);
+  const quantity = addCartQuantities(productDetailQuantity.textContent, 1);
+  if (quantity !== null) {
+    productDetailQuantity.textContent = String(quantity);
+    updateProductDetailAddButton();
+  }
 });
 
 productMainImage.addEventListener("click", () => {
@@ -1249,11 +1521,13 @@ productDetailImage.addEventListener("error", () => {
   productDetailImage.hidden = true;
   productMainImage.disabled = true;
   productMainImage.classList.add("image-unavailable");
+  productMainImage.setAttribute("aria-label", `صورة ${productDetailImage.alt} غير متاحة`);
 });
 productDetailImage.addEventListener("load", () => {
   productDetailImage.hidden = false;
   productMainImage.disabled = false;
   productMainImage.classList.remove("image-unavailable");
+  productMainImage.setAttribute("aria-label", `عرض صورة ${productDetailImage.alt} بحجم أكبر`);
 });
 document.getElementById("closeProductLightbox").addEventListener("click", () => productLightbox.close());
 productLightbox.addEventListener("click", event => {
@@ -1329,11 +1603,8 @@ function formatCheckoutQuantity(quantity) {
 }
 
 function renderCheckoutSummary() {
-  const itemCount = cart.reduce((sum, item) => sum + sanitizeCartQuantity(item.quantity), 0);
-  const subtotal = cart.reduce((sum, item) => {
-    const price = sanitizeCartPrice(item.priceNumber);
-    return price === null ? sum : Math.round((sum + price * sanitizeCartQuantity(item.quantity)) * 100) / 100;
-  }, 0);
+  const itemCount = getCartItemCount();
+  const subtotal = calculateCartSubtotal();
   document.getElementById("checkoutItemCount").textContent =
     `${formatCheckoutQuantity(itemCount)} ${itemCount === 1 ? "منتج" : "منتجات"}`;
   document.getElementById("checkoutSubtotal").textContent = formatCurrency(subtotal);
@@ -1462,11 +1733,8 @@ document.getElementById("checkoutForm").addEventListener("submit", (event) => {
     const orderNumber = `RIM-${Math.floor(1000 + Math.random() * 9000)}`;
     document.getElementById("orderNumber").textContent = orderNumber;
     const summary = document.getElementById("successSummary");
-    const quantity = cart.reduce((sum, item) => sum + sanitizeCartQuantity(item.quantity), 0);
-    const subtotal = cart.reduce((sum, item) => {
-      const price = sanitizeCartPrice(item.priceNumber);
-      return price === null ? sum : Math.round((sum + price * sanitizeCartQuantity(item.quantity)) * 100) / 100;
-    }, 0);
+    const quantity = getCartItemCount();
+    const subtotal = calculateCartSubtotal();
     summary.innerHTML = `
       <div><span>${formatCheckoutQuantity(quantity)} ${quantity === 1 ? "منتج" : "منتجات"}</span><strong>${formatCurrency(subtotal)}</strong></div>
       <p>الشحن سيُؤكد لاحقًا. لم يتم إرسال الطلب.</p>
@@ -1491,24 +1759,37 @@ document.getElementById("closeSuccess").addEventListener("click", () => {
 });
 
 function renderCart() {
-  cart.forEach(item => {
-    item.quantity = sanitizeCartQuantity(item.quantity);
+  for (let index = cart.length - 1; index >= 0; index--) {
+    const item = cart[index];
     const validPrice = sanitizeCartPrice(item.priceNumber);
-    if (validPrice !== null) {
-      item.priceNumber = validPrice;
-      item.price = formatCurrency(validPrice);
+    const validQuantity = parseCartQuantity(item.quantity);
+    if (
+      validPrice === null ||
+      validQuantity === null ||
+      typeof item.name !== "string" ||
+      !item.name.trim() ||
+      typeof item.productId !== "string" ||
+      !item.productId.trim()
+    ) {
+      cart.splice(index, 1);
+      continue;
     }
-  });
-  const quantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+    item.name = item.name.trim();
+    item.priceNumber = validPrice;
+    item.price = formatCurrency(validPrice);
+    item.quantity = validQuantity;
+    item.productId = item.productId.trim();
+    item.image = typeof item.image === "string" && item.image.trim()
+      ? item.image
+      : "assets/product3.jpg";
+  }
+  const quantity = getCartItemCount();
   const quantityChanged = cartCount.textContent !== String(quantity);
   cartCount.textContent = quantity;
   cartCount.hidden = quantity === 0;
   cartCount.setAttribute("aria-label", quantity === 1 ? "عنصر واحد في السلة" : `${quantity} عناصر في السلة`);
   if (cartHasRendered && quantityChanged) replayAnimation(cartCount, "cart-count-bump");
-  const total = cart.reduce((sum, item) => {
-    const validPrice = sanitizeCartPrice(item.priceNumber);
-    return validPrice === null ? sum : Math.round((sum + validPrice * item.quantity) * 100) / 100;
-  }, 0);
+  const total = calculateCartSubtotal();
   const formattedTotal = formatCurrency(total);
   if (cartHasRendered && cartTotal.textContent !== formattedTotal) {
     cartTotal.textContent = formattedTotal;
@@ -1526,26 +1807,14 @@ function renderCart() {
   );
   if (!cart.length) {
     previousLines.forEach(line => removeCartLine(line));
-    if (!cartItems.querySelector(".empty-cart")) {
-      const emptyCart = document.createElement("div");
-      emptyCart.className = "empty-cart";
-      emptyCart.innerHTML = `
-        <svg viewBox="0 0 48 48" aria-hidden="true">
-          <path d="M8 13h5l4 21h17l4-16H15"/>
-          <circle cx="21" cy="38" r="2"/>
-          <circle cx="33" cy="38" r="2"/>
-          <path d="M21 12c0-4 3-7 7-7s7 3 7 7"/>
-        </svg>
-        <h3>سلتك تنتظر تفاصيل جميلة</h3>
-        <p>اختاري ما يعجبك وأضيفي لمسات رِمَاء إلى منزلك.</p>
-        <button type="button" class="empty-cart-button" data-action="continue-shopping">متابعة التسوق</button>
-      `;
-      cartItems.append(emptyCart);
+    if (!cartItems.querySelector(".empty-cart [data-action='continue-shopping']")) {
+      cartItems.querySelector(".empty-cart")?.remove();
+      cartItems.append(createEmptyCartState());
     }
   } else {
     cartItems.querySelector(".empty-cart")?.remove();
     cart.forEach((item, index) => {
-      const cartKey = `${item.name}|${item.productId || ""}`;
+      const cartKey = getCartItemKey(item);
       let line = previousLines.get(cartKey);
       if (line) {
         previousLines.delete(cartKey);
@@ -1566,11 +1835,28 @@ function renderCart() {
   saveCart();
 }
 
+function createEmptyCartState() {
+  const emptyCart = document.createElement("div");
+  emptyCart.className = "empty-cart";
+  emptyCart.innerHTML = `
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M8 13h5l4 21h17l4-16H15"/>
+      <circle cx="21" cy="38" r="2"/>
+      <circle cx="33" cy="38" r="2"/>
+      <path d="M21 12c0-4 3-7 7-7s7 3 7 7"/>
+    </svg>
+    <h3>سلتك تنتظر تفاصيل جميلة</h3>
+    <p>اختاري ما يعجبك وأضيفي لمسات رِمَاء إلى منزلك.</p>
+    <button type="button" class="empty-cart-button" data-action="continue-shopping">متابعة التسوق</button>
+  `;
+  return emptyCart;
+}
+
 function createCartLine(item, index, animate) {
   const line = document.createElement("div");
   line.className = "cart-line";
   line.dataset.name = item.name;
-  line.dataset.cartKey = `${item.name}|${item.productId || ""}`;
+  line.dataset.cartKey = getCartItemKey(item);
   line.innerHTML = `
     <img class="cart-thumb" src="${item.image}" alt="">
     <div class="cart-line-info"><strong></strong><small></small><b></b></div>
@@ -1591,7 +1877,7 @@ function createCartLine(item, index, animate) {
 
 function updateCartLine(line, item, index, animateQuantity) {
   line.dataset.name = item.name;
-  line.dataset.cartKey = `${item.name}|${item.productId || ""}`;
+  line.dataset.cartKey = getCartItemKey(item);
   const thumb = line.querySelector(".cart-thumb");
   thumb.src = item.image || "assets/product3.jpg";
   thumb.onerror = () => {
@@ -1600,7 +1886,9 @@ function updateCartLine(line, item, index, animateQuantity) {
   };
   line.querySelector("strong").textContent = item.name;
   line.querySelector("small").textContent = `${item.quantity} × ${item.price}`;
-  line.querySelector("b").textContent = formatCurrency(Math.round(item.priceNumber * item.quantity * 100) / 100);
+  line.querySelector("b").textContent = formatCurrency(
+    Math.round((item.priceNumber * item.quantity + Number.EPSILON) * 100) / 100
+  );
   const quantity = line.querySelector(".cart-quantity span");
   const quantityText = String(item.quantity);
   quantity.setAttribute("aria-live", "polite");
@@ -1643,15 +1931,17 @@ cartItems.addEventListener("click", event => {
   const button = event.target.closest("button[data-action]");
   if (!button || !cartItems.contains(button)) return;
   const index = Number(button.dataset.index);
+  if (!Number.isSafeInteger(index) || index < 0) return;
   const item = cart[index];
   if (!item) return;
 
   if (button.dataset.action === "remove") {
     cart.splice(index, 1);
   } else if (button.dataset.action === "increase") {
-    item.quantity = sanitizeCartQuantity(item.quantity + 1);
-  } else if (button.dataset.action === "decrease" && item.quantity > 1) {
-    item.quantity = sanitizeCartQuantity(item.quantity - 1);
+    const quantity = addCartQuantities(item.quantity, 1);
+    if (quantity !== null) item.quantity = quantity;
+  } else if (button.dataset.action === "decrease") {
+    item.quantity = Math.max(1, sanitizeCartQuantity(item.quantity) - 1);
   }
   renderCart();
 });
@@ -1674,39 +1964,62 @@ function showCartToast(productName) {
   }, 2200);
 }
 function addProductToCart(card, options = {}) {
+  const productId = typeof card.dataset.productId === "string" ? card.dataset.productId.trim() : "";
+  const baseName = typeof card.dataset.name === "string" ? card.dataset.name.trim() : "";
   const grams = options.grams !== undefined ? options.grams : card.dataset.grams;
+  const gramsText = grams === undefined || grams === null ? "" : String(grams).trim();
+  const gramsNumber = gramsText ? Number(gramsText) : null;
   const option = options.option !== undefined ? options.option : card.dataset.option;
-  const name = grams
-    ? `${card.dataset.name} - ${new Intl.NumberFormat("ar-EG").format(Number(grams))} جرام`
-    : option
-      ? `${card.dataset.name} - ${option}`
-      : card.dataset.name;
-  const priceText = options.priceText || card.querySelector(".product-bottom strong").textContent;
-  const parsedPrice = options.priceNumber !== undefined
-    ? Number(options.priceNumber)
-    : Number(card.dataset.price || priceText.match(/\d+/)?.[0] || 0);
-  const priceNumber = sanitizeCartPrice(parsedPrice);
-  if (priceNumber === null) return;
-  const quantity = sanitizeCartQuantity(options.quantity);
-  const image = card.querySelector(".product-image img")?.getAttribute("src") || "assets/product3.jpg";
-  const existing = cart.find(item =>
-    item.name === name &&
-    (!item.productId || item.productId === card.dataset.productId)
+  if (!productId || !baseName) {
+    console.error("Cart item rejected: product ID or name is missing.");
+    return;
+  }
+  if (gramsText && (!Number.isSafeInteger(gramsNumber) || gramsNumber <= 0)) {
+    console.error("Cart item rejected: variant weight is invalid.");
+    return;
+  }
+  if (option !== undefined && option !== null && typeof option !== "string") {
+    console.error("Cart item rejected: variant name is invalid.");
+    return;
+  }
+  const optionName = typeof option === "string" ? option.trim() : "";
+  const name = gramsText
+    ? `${baseName} - ${new Intl.NumberFormat("ar-EG").format(gramsNumber)} جرام`
+    : optionName
+      ? `${baseName} - ${optionName}`
+      : baseName;
+  const priceNumber = sanitizeCartPrice(
+    options.priceNumber !== undefined ? options.priceNumber : card.dataset.price
   );
+  if (priceNumber === null) {
+    console.error("Cart item rejected: price is missing or invalid.");
+    return;
+  }
+  const quantity = options.quantity === undefined ? 1 : parseCartQuantity(options.quantity);
+  if (quantity === null) {
+    console.error("Cart item rejected: quantity is invalid.");
+    return;
+  }
+  const image = card.querySelector(".product-image img")?.getAttribute("src") || "assets/product3.jpg";
+  const cartItem = {
+    name,
+    price: formatCurrency(priceNumber),
+    priceNumber,
+    image,
+    quantity,
+    productId
+  };
+  const cartItemKey = getCartItemKey(cartItem);
+  const existing = cart.find(item => getCartItemKey(item) === cartItemKey);
   if (existing) {
-    existing.quantity = sanitizeCartQuantity(existing.quantity + quantity);
+    const updatedQuantity = addCartQuantities(existing.quantity, quantity);
+    if (updatedQuantity === null) return;
+    existing.quantity = updatedQuantity;
     existing.priceNumber = priceNumber;
     existing.price = formatCurrency(priceNumber);
     existing.image = image;
   } else {
-    cart.push({
-      name,
-      price: priceText,
-      priceNumber,
-      image,
-      quantity,
-      productId: card.dataset.productId
-    });
+    cart.push(cartItem);
   }
 
   if (!reducedMotion.matches && card.classList.contains("candle-spotlight")) {
@@ -1723,7 +2036,7 @@ function addProductToCart(card, options = {}) {
       addButton.dataset.previousText = addButton.textContent;
     }
   }
-  addButton.setAttribute("aria-label", `تمت إضافة ${card.dataset.name} إلى السلة`);
+  addButton.setAttribute("aria-label", `تمت إضافة ${baseName} إلى السلة`);
   addButton.classList.add("is-added");
   if (addButton.classList.contains("product-detail-add")) addButton.textContent = "تمت الإضافة ✓";
   replayAnimation(addButton, "add-feedback");
@@ -1756,7 +2069,9 @@ document.querySelectorAll(".product-card").forEach(card => {
 });
 
 productDetailAdd.addEventListener("click", () => {
-  if (!activeProductCard) return;
+  if (productDetailAddCooldown || !canAddProductDetailToCart()) return;
+  productDetailAddCooldown = true;
+  updateProductDetailAddButton();
   addProductToCart(activeProductCard, {
     ...activeProductVariant,
     priceText: formatCurrency(activeProductVariant.priceNumber),
@@ -1764,6 +2079,11 @@ productDetailAdd.addEventListener("click", () => {
     feedbackButton: productDetailAdd,
     sourceImage: productDetailImage
   });
+  window.clearTimeout(productDetailAddCooldownTimer);
+  productDetailAddCooldownTimer = window.setTimeout(() => {
+    productDetailAddCooldown = false;
+    updateProductDetailAddButton();
+  }, 450);
 });
 
 renderCart();
