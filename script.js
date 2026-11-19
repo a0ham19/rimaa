@@ -55,8 +55,167 @@ categoryGalleries.forEach(section => {
 
   const cards = images.map((image, imageIndex) => {
     productIndex++;
-    const priceNumber = 100 + ((productIndex - 1) % 8) * 25;
-    const name = `${categoryName} ${new Intl.NumberFormat("ar-EG").format(imageIndex + 1)}`;
+    const productNumber = imageIndex + 1;
+    const isSmallWardrobeDiffuser =
+      section.id === "diffusers-gallery" && productNumber >= 1 && productNumber <= 4;
+    const isArabicBathroomDiffuser =
+      section.id === "diffusers-gallery" && productNumber === 5;
+    const isRoseDiffuser =
+      section.id === "diffusers-gallery" && productNumber >= 6 && productNumber <= 16;
+    const isNamedRoseDiffuser =
+      section.id === "diffusers-gallery" && productNumber >= 6 && productNumber <= 17;
+    const isMiniDiffuser =
+      section.id === "diffusers-gallery" && productNumber === 18;
+    const isThreeCandleholders =
+      section.id === "candleholders-gallery" &&
+      (productNumber === 1 || productNumber === 2);
+    const isMetalCandleholder =
+      section.id === "candleholders-gallery" && productNumber === 3;
+    const isSingleSevouCandleholder =
+      section.id === "candleholders-gallery" && productNumber === 4;
+    const isSingleRoseCandle =
+      section.id === "flower-candles-gallery" && productNumber === 1;
+    const isJouriGiftBoxCandle =
+      section.id === "flower-candles-gallery" && productNumber === 2;
+    const isJouriRoseCandle =
+      section.id === "flower-candles-gallery" && productNumber === 3;
+    const isSunflowerRoseCandle =
+      section.id === "flower-candles-gallery" && productNumber === 4;
+    const isTulipRoseCandle =
+      section.id === "flower-candles-gallery" && productNumber === 5;
+    const isLocalRoseCandle =
+      section.id === "flower-candles-gallery" && productNumber === 6;
+    const isSmallBubblesCandle =
+      section.id === "shaped-candles-gallery" && productNumber === 1;
+    const isElephantCandle =
+      section.id === "shaped-candles-gallery" && productNumber === 2;
+    const isBubblesCandle =
+      section.id === "shaped-candles-gallery" && productNumber === 3;
+    const isLargeBubblesCandle =
+      section.id === "shaped-candles-gallery" && productNumber === 4;
+    const isSingleTeaLight =
+      section.id === "tea-lights-gallery" && productNumber === 1;
+    const isScentedTeaLight =
+      section.id === "tea-lights-gallery" && productNumber === 2;
+    const isShapedTeaLight =
+      section.id === "tea-lights-gallery" &&
+      (productNumber === 3 || productNumber === 4 || productNumber === 5);
+    const localRoseVariants = [
+      { label: "الكبيره", price: 65 },
+      { label: "الصغيره", price: 27 }
+    ];
+    const miniDiffuserVariants = [
+      { label: "10 قلوب", price: 30 },
+      { label: "6 سحابات", price: 30 },
+      { label: "الاثنين معًا", price: 60 }
+    ];
+    const name = isSmallWardrobeDiffuser
+      ? "فواحات دولاب صغيرة"
+      : isArabicBathroomDiffuser
+        ? "فواحات حمام عربيه"
+        : isRoseDiffuser
+          ? "فواحات ورده"
+          : isNamedRoseDiffuser
+            ? "فواحات ورده"
+            : isMiniDiffuser
+              ? "فواحات ميني للشنط التخزين / الادراج"
+              : isThreeCandleholders
+                ? "شمعدان الثلاثه مع بعض"
+                : isMetalCandleholder
+                  ? "شمعدان معدن"
+                  : isSingleSevouCandleholder
+                    ? "شمعدان للسبوع (الواحده)"
+                    : isSingleRoseCandle
+                      ? "شمع ورده (الواحده)"
+                      : isJouriGiftBoxCandle
+                        ? "شمعه جوري بعلبه هدايا"
+                        : isJouriRoseCandle
+                          ? "ورده جوري"
+                          : isSunflowerRoseCandle
+                            ? "شمعه ورده عباد الشمس (الوحده)"
+                            : isTulipRoseCandle
+                              ? "ورده التوليب (الوحده)"
+                              : isLocalRoseCandle
+                                ? "ورده بلدي"
+                                : isSmallBubblesCandle
+                                  ? "شمع بابلز صغيره (الوحده)"
+                                  : isElephantCandle
+                                    ? "شمع فيل فلفوله"
+                                    : isBubblesCandle
+                                      ? "شمع بابلز"
+                                      : isLargeBubblesCandle
+                                        ? "شمع بابلز كبير"
+                                        : isSingleTeaLight
+                                          ? "تي لايت (الواحده)"
+                                          : isScentedTeaLight
+                                            ? "تي لايت معطر (الواحده)"
+                                            : isShapedTeaLight
+                                              ? "تي لايت اشكال (الواحده)"
+                                              : `${categoryName} ${new Intl.NumberFormat("ar-EG").format(productNumber)}`;
+    const fixedCandleJarPrices =
+      section.id === "candles-gallery"
+        ? { 1: 200, 2: 200, 3: 65, 4: 200 }
+        : null;
+    const candleJarNumber = imageIndex + 1;
+    const hasWeightVariants =
+      section.id === "candles-gallery" && candleJarNumber >= 5 && candleJarNumber <= 11;
+    const weightVariants = [
+      { grams: 50, price: 140 },
+      { grams: 80, price: 170 },
+      { grams: 100, price: 190 },
+      { grams: 130, price: 220 },
+      { grams: 150, price: 250 },
+      { grams: 170, price: 275 },
+      { grams: 180, price: 285 }
+    ];
+    const candleJarPrice = fixedCandleJarPrices?.[candleJarNumber];
+    const priceNumber = hasWeightVariants
+      ? weightVariants[0].price
+      : isLocalRoseCandle
+        ? localRoseVariants[0].price
+      : isSmallBubblesCandle
+        ? 55
+      : isElephantCandle
+        ? 50
+      : isBubblesCandle
+        ? 55
+      : isLargeBubblesCandle
+        ? 170
+      : isSingleTeaLight
+        ? 15
+      : isScentedTeaLight
+        ? 30
+      : isShapedTeaLight
+        ? 35
+      : isMiniDiffuser
+        ? miniDiffuserVariants[0].price
+      : isThreeCandleholders
+        ? 120
+      : isMetalCandleholder
+        ? 150
+      : isSingleSevouCandleholder
+        ? 45
+      : isSingleRoseCandle
+        ? 20
+      : isJouriGiftBoxCandle
+        ? 100
+      : isJouriRoseCandle
+        ? 65
+      : isSunflowerRoseCandle
+        ? 25
+      : isTulipRoseCandle
+        ? 35
+      : section.id === "dried-flowers-gallery"
+        ? 30
+        : isSmallWardrobeDiffuser
+          ? 35
+          : isArabicBathroomDiffuser
+            ? 65
+            : isRoseDiffuser
+              ? 35
+              : candleJarPrice
+                ? candleJarPrice
+                : 100 + ((productIndex - 1) % 8) * 25;
     const card = document.createElement("article");
     const imageWrapper = document.createElement("div");
     const info = document.createElement("div");
@@ -86,7 +245,102 @@ categoryGalleries.forEach(section => {
 
     imageWrapper.append(image, quickAdd);
     bottom.append(price, addButton);
-    info.append(type, title, bottom);
+    info.append(type, title);
+
+    if (hasWeightVariants) {
+      const weightOptions = document.createElement("div");
+      weightOptions.className = "weight-options";
+      weightOptions.setAttribute("role", "group");
+      weightOptions.setAttribute("aria-label", `خيارات وزن ${name}`);
+      weightVariants.forEach((variant, variantIndex) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "weight-option";
+        option.dataset.grams = String(variant.grams);
+        option.dataset.price = String(variant.price);
+        if (variantIndex === 0) option.classList.add("active");
+        option.innerHTML = `<strong>${new Intl.NumberFormat("ar-EG").format(variant.grams)} جرام</strong><span>${formatCurrency(variant.price)}</span>`;
+        option.setAttribute("aria-pressed", variantIndex === 0 ? "true" : "false");
+        option.addEventListener("click", () => {
+          weightOptions.querySelectorAll(".weight-option").forEach(item => {
+            item.classList.remove("active");
+            item.setAttribute("aria-pressed", "false");
+          });
+          option.classList.add("active");
+          option.setAttribute("aria-pressed", "true");
+          card.dataset.price = variant.price;
+          card.dataset.grams = variant.grams;
+          price.textContent = formatCurrency(variant.price);
+        });
+        weightOptions.append(option);
+      });
+      card.dataset.grams = "50";
+      info.append(weightOptions);
+    }
+
+    if (isMiniDiffuser) {
+      const miniOptions = document.createElement("div");
+      miniOptions.className = "weight-options";
+      miniOptions.setAttribute("role", "group");
+      miniOptions.setAttribute("aria-label", `خيارات ${name}`);
+      miniDiffuserVariants.forEach((variant, variantIndex) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "weight-option";
+        option.dataset.option = variant.label;
+        option.dataset.price = String(variant.price);
+        if (variantIndex === 0) option.classList.add("active");
+        option.innerHTML = `<strong>${variant.label}</strong><span>${formatCurrency(variant.price)}</span>`;
+        option.setAttribute("aria-pressed", variantIndex === 0 ? "true" : "false");
+        option.addEventListener("click", () => {
+          miniOptions.querySelectorAll(".weight-option").forEach(item => {
+            item.classList.remove("active");
+            item.setAttribute("aria-pressed", "false");
+          });
+          option.classList.add("active");
+          option.setAttribute("aria-pressed", "true");
+          card.dataset.price = String(variant.price);
+          card.dataset.option = variant.label;
+          price.textContent = formatCurrency(variant.price);
+        });
+        miniOptions.append(option);
+      });
+      card.dataset.option = miniDiffuserVariants[0].label;
+      info.append(miniOptions);
+    }
+
+    if (isLocalRoseCandle) {
+      const sizeOptions = document.createElement("div");
+      sizeOptions.className = "weight-options";
+      sizeOptions.setAttribute("role", "group");
+      sizeOptions.setAttribute("aria-label", `خيارات حجم ${name}`);
+      localRoseVariants.forEach((variant, variantIndex) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "weight-option";
+        option.dataset.option = variant.label;
+        option.dataset.price = String(variant.price);
+        if (variantIndex === 0) option.classList.add("active");
+        option.innerHTML = `<strong>${variant.label}</strong><span>${formatCurrency(variant.price)}</span>`;
+        option.setAttribute("aria-pressed", variantIndex === 0 ? "true" : "false");
+        option.addEventListener("click", () => {
+          sizeOptions.querySelectorAll(".weight-option").forEach(item => {
+            item.classList.remove("active");
+            item.setAttribute("aria-pressed", "false");
+          });
+          option.classList.add("active");
+          option.setAttribute("aria-pressed", "true");
+          card.dataset.price = String(variant.price);
+          card.dataset.option = variant.label;
+          price.textContent = formatCurrency(variant.price);
+        });
+        sizeOptions.append(option);
+      });
+      card.dataset.option = localRoseVariants[0].label;
+      info.append(sizeOptions);
+    }
+
+    info.append(bottom);
     card.append(imageWrapper, info);
     return card;
   });
@@ -147,7 +401,7 @@ document.querySelectorAll("#nav a").forEach(link => {
   });
 });
 
-document.querySelectorAll(".category-card[href^='#'], .dropdown a[href^='#']").forEach(link => {
+document.querySelectorAll(".category-card[href^='#'], .bestseller-category[href^='#'], .dropdown a[href^='#']").forEach(link => {
   link.addEventListener("click", event => {
     const gallery = document.querySelector(link.getAttribute("href"));
     if (!gallery?.classList.contains("category-gallery")) {
@@ -271,7 +525,13 @@ function renderCart() {
 document.querySelectorAll(".product-card").forEach(card => {
   card.querySelectorAll(".add-button, .quick-add").forEach(button => {
     button.addEventListener("click", () => {
-      const name = card.dataset.name;
+      const grams = card.dataset.grams;
+      const option = card.dataset.option;
+      const name = grams
+        ? `${card.dataset.name} - ${new Intl.NumberFormat("ar-EG").format(Number(grams))} جرام`
+        : option
+          ? `${card.dataset.name} - ${option}`
+          : card.dataset.name;
       const priceText = card.querySelector(".product-bottom strong").textContent;
       const priceNumber = Number(card.dataset.price || priceText.match(/\d+/)?.[0] || 0);
       const image = card.querySelector("img").getAttribute("src");

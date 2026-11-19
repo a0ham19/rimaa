@@ -87,6 +87,14 @@ button { cursor: pointer; }
 .text-link:hover { color: var(--clay); border-color: var(--clay); }
 .text-link span { margin-right: 12px; }
 .products-grid { max-width: 1210px; margin: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+.bestseller-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 760px; }
+.bestseller-category { height: 350px; position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--sand); }
+.bestseller-category img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .55s; }
+.bestseller-category:hover img { transform: scale(1.045); }
+.bestseller-category-shade { position: absolute; inset: 35% 0 0; background: linear-gradient(0deg, rgba(24,18,16,.78), transparent); }
+.bestseller-category-title { position: absolute; right: 20px; bottom: 18px; left: 20px; display: flex; flex-direction: column; gap: 5px; color: white; }
+.bestseller-category-title strong { font-family: var(--serif); font-size: 28px; font-weight: 400; }
+.bestseller-category-title span { color: #e2c7af; font-size: 11px; }
 .product-card { min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--cream); transition: transform .25s; }
 .product-card:hover { transform: translateY(-4px); }
 .product-image { height: 350px; position: relative; overflow: hidden; background: var(--sand); }
@@ -104,6 +112,12 @@ button { cursor: pointer; }
 .product-bottom strong { color: var(--night); font-size: 13px; }
 .add-button { padding: 4px 0; border: 0; border-bottom: 1px solid transparent; background: none; color: #777067; font-size: 11px; }
 .add-button:hover { color: var(--clay); border-color: var(--clay); }
+.weight-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 4px 0 12px; }
+.weight-option { min-height: 50px; padding: 7px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 1px solid var(--line); background: var(--white); color: var(--night); transition: .2s; }
+.weight-option strong { font-size: 11px; font-weight: 500; }
+.weight-option span { color: var(--muted); font-size: 10px; }
+.weight-option.active { border-color: var(--clay); background: #fff9f7; }
+.weight-option.active span { color: var(--clay); }
 .search-empty { grid-column: 1/-1; padding: 30px 0; color: var(--muted); text-align: center; }
 
 .collection-gallery { padding: 86px 7.5% 96px; background: #f4eeeb; }
