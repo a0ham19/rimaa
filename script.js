@@ -1574,6 +1574,9 @@ document.querySelectorAll(".category-return").forEach(link => {
   });
 });
 
+const footerYear = document.getElementById("footerYear");
+if (footerYear) footerYear.textContent = String(new Date().getFullYear());
+
 document.getElementById("searchButton").addEventListener("click", () => {
   document.getElementById("searchPanel").classList.add("open");
   modalSearchInput.value = catalogSearchInput.value;
@@ -1597,6 +1600,52 @@ const successModal = document.getElementById("successModal");
 const checkoutForm = document.getElementById("checkoutForm");
 const checkoutConfirmButton = document.getElementById("checkoutConfirmButton");
 let checkoutSubmitting = false;
+const checkoutShippingRates = {
+  "القاهرة": 50,
+  "الجيزة": 50,
+  "الإسكندرية": 65,
+  "الدقهلية": 75,
+  "البحر الأحمر": 90,
+  "البحيرة": 75,
+  "الفيوم": 75,
+  "الغربية": 75,
+  "الإسماعيلية": 75,
+  "المنوفية": 75,
+  "المنيا": 85,
+  "القليوبية": 55,
+  "الوادي الجديد": 120,
+  "السويس": 80,
+  "أسوان": 100,
+  "أسيوط": 90,
+  "بني سويف": 80,
+  "بورسعيد": 80,
+  "دمياط": 75,
+  "الشرقية": 70,
+  "جنوب سيناء": 110,
+  "كفر الشيخ": 80,
+  "مطروح": 120,
+  "الأقصر": 95,
+  "قنا": 95,
+  "شمال سيناء": 110,
+  "سوهاج": 95
+};
+let checkoutShipping = 0;
+
+function getCheckoutShipping(governorate) {
+  return checkoutShippingRates[governorate] ?? 80;
+}
+
+function renderCheckoutTotals() {
+  const subtotal = calculateCartSubtotal();
+  const governorate = document.getElementById("checkoutGovernorate")?.value || "";
+  checkoutShipping = governorate ? getCheckoutShipping(governorate) : 0;
+  document.getElementById("checkoutSubtotal").textContent = formatCurrency(subtotal);
+  document.getElementById("checkoutShipping").textContent = governorate
+    ? formatCurrency(checkoutShipping)
+    : "اختر المحافظة";
+  document.getElementById("checkoutTotal").textContent =
+    formatCurrency(subtotal + checkoutShipping);
+}
 
 function formatCheckoutQuantity(quantity) {
   return new Intl.NumberFormat("ar-EG").format(quantity);
@@ -1607,8 +1656,7 @@ function renderCheckoutSummary() {
   const subtotal = calculateCartSubtotal();
   document.getElementById("checkoutItemCount").textContent =
     `${formatCheckoutQuantity(itemCount)} ${itemCount === 1 ? "منتج" : "منتجات"}`;
-  document.getElementById("checkoutSubtotal").textContent = formatCurrency(subtotal);
-  document.getElementById("checkoutTotal").textContent = formatCurrency(subtotal);
+  renderCheckoutTotals();
 
   const summaryItems = document.getElementById("checkoutSummaryItems");
   summaryItems.replaceChildren();
@@ -1658,14 +1706,14 @@ function validateCheckoutField(field) {
   if (!field) return true;
   const value = String(field.value || "").trim();
   let message = "";
-  if (field.name === "name" && !value) message = "Please enter your full name.";
-  if (field.name === "phone" && !value) message = "Please enter your phone number.";
+  if (field.name === "name" && !value) message = "من فضلك اكتب الاسم الكامل.";
+  if (field.name === "phone" && !value) message = "من فضلك اكتب رقم الهاتف.";
   else if (field.name === "phone" && value && !validateEgyptianPhone(value)) {
-    message = "Please enter a valid Egyptian phone number.";
+    message = "من فضلك اكتب رقم هاتف مصري صحيح.";
   }
-  if (field.name === "governorate" && !value) message = "Please select your governorate.";
-  if (field.name === "area" && !value) message = "Please enter your city or area.";
-  if (field.name === "address" && !value) message = "Please enter your full address.";
+  if (field.name === "governorate" && !value) message = "من فضلك اختاري المحافظة.";
+  if (field.name === "area" && !value) message = "من فضلك اكتب المدينة أو المنطقة.";
+  if (field.name === "address" && !value) message = "من فضلك اكتب عنوان التوصيل بالتفصيل.";
   setCheckoutFieldError(field, message);
   return !message;
 }
@@ -1683,6 +1731,7 @@ checkoutForm.querySelectorAll("[name='name'], [name='phone'], [name='governorate
   field.addEventListener("blur", () => validateCheckoutField(field));
   field.addEventListener(field.tagName === "SELECT" ? "change" : "input", () => {
     if (field.getAttribute("aria-invalid") === "true") validateCheckoutField(field);
+    if (field.name === "governorate") renderCheckoutTotals();
   });
 });
 
@@ -1700,11 +1749,6 @@ document.getElementById("checkoutButton").addEventListener("click", () => {
     return;
   }
   renderCheckoutSummary();
-  const checkoutTotal = document.getElementById("checkoutTotal");
-  if (checkoutTotal.textContent !== cartTotal.textContent) {
-    checkoutTotal.textContent = cartTotal.textContent;
-    replayAnimation(checkoutTotal, "total-updating");
-  }
   cartDrawer.classList.remove("open");
   checkoutDrawer.classList.add("open");
   document.body.classList.add("cart-open");
@@ -1735,10 +1779,36 @@ document.getElementById("checkoutForm").addEventListener("submit", (event) => {
     const summary = document.getElementById("successSummary");
     const quantity = getCartItemCount();
     const subtotal = calculateCartSubtotal();
+    const shipping = checkoutShipping;
+    const total = subtotal + shipping;
     summary.innerHTML = `
-      <div><span>${formatCheckoutQuantity(quantity)} ${quantity === 1 ? "منتج" : "منتجات"}</span><strong>${formatCurrency(subtotal)}</strong></div>
-      <p>الشحن سيُؤكد لاحقًا. لم يتم إرسال الطلب.</p>
+      <div><span>${formatCheckoutQuantity(quantity)} ${quantity === 1 ? "منتج" : "منتجات"}</span><strong>${formatCurrency(total)}</strong></div>
+      <p>المجموع يشمل الشحن: ${formatCurrency(shipping)}. سيتم تأكيد الطلب عبر واتساب.</p>
     `;
+    const formData = new FormData(checkoutForm);
+    const orderLines = cart.map(item =>
+      `- ${item.name} × ${formatCheckoutQuantity(item.quantity)} — ${formatCurrency(
+        sanitizeCartPrice(item.priceNumber) * parseCartQuantity(item.quantity)
+      )}`
+    ).join("\n");
+    const orderMessage = [
+      `مرحبًا رِمَاء، أريد تأكيد طلب رقم ${orderNumber}`,
+      "",
+      ...orderLines,
+      "",
+      `المجموع الفرعي: ${formatCurrency(subtotal)}`,
+      `الشحن: ${formatCurrency(shipping)}`,
+      `الإجمالي: ${formatCurrency(total)}`,
+      "",
+      `الاسم: ${formData.get("name")}`,
+      `الهاتف: ${formData.get("phone")}`,
+      `المحافظة: ${formData.get("governorate")}`,
+      `المدينة / المنطقة: ${formData.get("area")}`,
+      `العنوان: ${formData.get("address")}`,
+      `ملاحظات: ${String(formData.get("notes") || "").trim() || "لا يوجد"}`
+    ].join("\n");
+    const whatsappUrl = `https://wa.me/201013950918?text=${encodeURIComponent(orderMessage)}`;
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
     checkoutDrawer.classList.remove("open");
     overlay.classList.add("open");
     successModal.classList.add("open");
