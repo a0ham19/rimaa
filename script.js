@@ -133,7 +133,7 @@ const diffuserProductGroups = [
     descriptionKey: "sunflower"
   },
   {
-    productNumbers: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    productNumbers: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
     name: "فواحات ورده",
     price: 35
   },
@@ -1599,63 +1599,29 @@ const checkoutDrawer = document.getElementById("checkoutDrawer");
 const successModal = document.getElementById("successModal");
 const checkoutForm = document.getElementById("checkoutForm");
 const checkoutConfirmButton = document.getElementById("checkoutConfirmButton");
-const paymentInstructions = document.getElementById("paymentInstructions");
 let checkoutSubmitting = false;
-const checkoutShippingRates = {
-  "القاهرة": 50,
-  "الجيزة": 50,
-  "الإسكندرية": 65,
-  "الدقهلية": 75,
-  "البحر الأحمر": 90,
-  "البحيرة": 75,
-  "الفيوم": 75,
-  "الغربية": 75,
-  "الإسماعيلية": 75,
-  "المنوفية": 75,
-  "المنيا": 85,
-  "القليوبية": 55,
-  "الوادي الجديد": 120,
-  "السويس": 80,
-  "أسوان": 100,
-  "أسيوط": 90,
-  "بني سويف": 80,
-  "بورسعيد": 80,
-  "دمياط": 75,
-  "الشرقية": 70,
-  "جنوب سيناء": 110,
-  "كفر الشيخ": 80,
-  "مطروح": 120,
-  "الأقصر": 95,
-  "قنا": 95,
-  "شمال سيناء": 110,
-  "سوهاج": 95
-};
-let checkoutShipping = 0;
-
-checkoutForm.querySelectorAll("[name='payment']").forEach(option => {
-  option.addEventListener("change", () => {
-    paymentInstructions.hidden = option.value === "الدفع عند الاستلام";
-  });
-});
-
-function getCheckoutShipping(governorate) {
-  return checkoutShippingRates[governorate] ?? 80;
-}
 
 function renderCheckoutTotals() {
   const subtotal = calculateCartSubtotal();
-  const governorate = document.getElementById("checkoutGovernorate")?.value || "";
-  checkoutShipping = governorate ? getCheckoutShipping(governorate) : 0;
   document.getElementById("checkoutSubtotal").textContent = formatCurrency(subtotal);
-  document.getElementById("checkoutShipping").textContent = governorate
-    ? formatCurrency(checkoutShipping)
-    : "اختر المحافظة";
-  document.getElementById("checkoutTotal").textContent =
-    formatCurrency(subtotal + checkoutShipping);
+  document.getElementById("checkoutShipping").textContent = "يُحدد عبر واتساب";
+  document.getElementById("checkoutTotal").textContent = formatCurrency(subtotal);
 }
 
 function formatCheckoutQuantity(quantity) {
   return new Intl.NumberFormat("ar-EG").format(quantity);
+}
+
+function formatWhatsAppNumber(value) {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+}
+
+function cleanWhatsAppText(value) {
+  return String(value || "")
+    .replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu, "")
+    .replace(/\s+/g, " ")
+    .replace(/[–—]/g, "-")
+    .trim();
 }
 
 function renderCheckoutSummary() {
@@ -1786,40 +1752,38 @@ document.getElementById("checkoutForm").addEventListener("submit", (event) => {
     const summary = document.getElementById("successSummary");
     const quantity = getCartItemCount();
     const subtotal = calculateCartSubtotal();
-    const shipping = checkoutShipping;
-    const total = subtotal + shipping;
     summary.innerHTML = `
-      <div><span>${formatCheckoutQuantity(quantity)} ${quantity === 1 ? "منتج" : "منتجات"}</span><strong>${formatCurrency(total)}</strong></div>
-      <p>المجموع يشمل الشحن: ${formatCurrency(shipping)}. سيتم تأكيد الطلب عبر واتساب.</p>
+      <div><span>${formatCheckoutQuantity(quantity)} ${quantity === 1 ? "منتج" : "منتجات"}</span><strong>${formatCurrency(subtotal)}</strong></div>
+      <p>سعر الشحن وطريقة الدفع النهائية سيتم تأكيدهما عبر واتساب.</p>
     `;
     const formData = new FormData(checkoutForm);
-    const paymentMethod = String(formData.get("payment") || "");
-    const isTransferPayment = paymentMethod === "فودافون كاش" || paymentMethod === "إنستا باي";
-    document.getElementById("successMessage").textContent = isTransferPayment
-      ? "تم تجهيز طلبك. بعد التحويل، أرفق صورة الإيصال يدويًا في محادثة واتساب وأرسلها لتأكيد الدفع."
-      : "تم تجهيز طلبك وإرساله إلى واتساب رِمَاء. يرجى إرسال الرسالة للتأكيد النهائي.";
-    const orderLines = cart.map(item =>
-      `- ${item.name} × ${formatCheckoutQuantity(item.quantity)} — ${formatCurrency(
-        sanitizeCartPrice(item.priceNumber) * parseCartQuantity(item.quantity)
-      )}`
-    ).join("\n");
+    document.getElementById("successMessage").textContent =
+      "تم تجهيز الطلب. افتح واتساب وأرسل الرسالة ليتم تأكيد الطلب وسعر الشحن وطريقة الدفع معك.";
+    const orderLines = cart.map((item, index) => {
+      const quantity = parseCartQuantity(item.quantity);
+      return [
+        `${index + 1}. ${cleanWhatsAppText(item.name)}`,
+        `الكمية: ${formatWhatsAppNumber(quantity)}`
+      ].join("\n");
+    }).join("\n");
     const orderMessage = [
-      `مرحبًا رِمَاء، أريد تأكيد طلب رقم ${orderNumber}`,
+      "طلب جديد من موقع رِمَاء",
+      `رقم الطلب: ${orderNumber}`,
       "",
-      ...orderLines,
+      "المنتجات:",
+      orderLines,
       "",
-      `المجموع الفرعي: ${formatCurrency(subtotal)}`,
-      `الشحن: ${formatCurrency(shipping)}`,
-      `الإجمالي: ${formatCurrency(total)}`,
-      `طريقة الدفع: ${paymentMethod}`,
-      ...(isTransferPayment ? ["بعد التحويل، سأرفق صورة الإيصال في هذه المحادثة لتأكيد الدفع."] : []),
+      `المجموع الفرعي: ${formatWhatsAppNumber(subtotal)} ج.م`,
+      "الشحن: يحدده المسؤول ويتفق مع العميل",
+      "طريقة الدفع: يتم تأكيدها مع العميل",
       "",
-      `الاسم: ${formData.get("name")}`,
-      `الهاتف: ${formData.get("phone")}`,
-      `المحافظة: ${formData.get("governorate")}`,
-      `المدينة / المنطقة: ${formData.get("area")}`,
-      `العنوان: ${formData.get("address")}`,
-      `ملاحظات: ${String(formData.get("notes") || "").trim() || "لا يوجد"}`
+      "بيانات العميل:",
+      `الاسم: ${cleanWhatsAppText(formData.get("name"))}`,
+      `رقم الهاتف: ${cleanWhatsAppText(formData.get("phone"))}`,
+      `المحافظة: ${cleanWhatsAppText(formData.get("governorate"))}`,
+      `المدينة أو المنطقة: ${cleanWhatsAppText(formData.get("area"))}`,
+      `العنوان بالتفصيل: ${cleanWhatsAppText(formData.get("address"))}`,
+      `ملاحظات: ${cleanWhatsAppText(formData.get("notes")) || "لا يوجد"}`
     ].join("\n");
     const whatsappUrl = `https://wa.me/201013950918?text=${encodeURIComponent(orderMessage)}`;
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");

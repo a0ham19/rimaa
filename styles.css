@@ -8,8 +8,8 @@
   --ink: #403a34;
   --muted: #776f65;
   --line: rgba(73, 63, 52, .12);
-  --serif: "Aref Ruqaa", sans-serif;
-  --sans: "Aref Ruqaa", sans-serif;
+  --serif: "IBM Plex Sans Arabic", "Tajawal", sans-serif;
+  --sans: "IBM Plex Sans Arabic", "Tajawal", sans-serif;
 }
 
 * { box-sizing: border-box; }

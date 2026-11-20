@@ -14,7 +14,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -495,25 +495,12 @@
         <section class="checkout-section checkout-payment" aria-labelledby="paymentTitle">
           <div class="checkout-section-heading">
             <span>٢</span>
-            <div><p>الدفع والتسليم</p><h3 id="paymentTitle">طريقة الدفع</h3></div>
+            <div><p>التأكيد والتسليم</p><h3 id="paymentTitle">تأكيد الطلب عبر واتساب</h3></div>
           </div>
           <label class="payment-option">
-            <input type="radio" name="payment" value="الدفع عند الاستلام" checked>
-            <span><strong>الدفع عند الاستلام</strong><small>سيتم تأكيد طريقة الدفع أثناء التواصل</small></span>
+            <input type="radio" name="payment" value="تأكيد ومراجعة عبر واتساب" checked>
+            <span><strong>واتساب</strong><small>سيتم إرسال تفاصيل الطلب، ثم يتواصل معك المسؤول لتأكيد الطلب وسعر الشحن وطريقة الدفع.</small></span>
           </label>
-          <label class="payment-option">
-            <input type="radio" name="payment" value="فودافون كاش">
-            <span><strong>فودافون كاش</strong><small>حوّل قيمة الطلب إلى الرقم الموضح أدناه</small></span>
-          </label>
-          <label class="payment-option">
-            <input type="radio" name="payment" value="إنستا باي">
-            <span><strong>إنستا باي</strong><small>حوّل قيمة الطلب إلى الرقم الموضح أدناه</small></span>
-          </label>
-          <div class="payment-instructions" id="paymentInstructions" hidden aria-live="polite">
-            <p>رقم التحويل</p>
-            <strong dir="ltr">01013950918</strong>
-            <small>بعد التحويل، اضغط «تأكيد الطلب» لفتح واتساب، ثم أرفق صورة الإيصال يدويًا في المحادثة وأرسلها لتأكيد الدفع.</small>
-          </div>
         </section>
       </form>
 
@@ -523,15 +510,15 @@
         <div class="checkout-summary-items" id="checkoutSummaryItems"></div>
         <div class="checkout-costs">
           <div><span>المجموع الفرعي</span><strong id="checkoutSubtotal">0 ج.م</strong></div>
-          <div><span>الشحن</span><strong id="checkoutShipping">اختر المحافظة</strong></div>
-          <div class="checkout-final-total"><span>الإجمالي</span><strong id="checkoutTotal">0 ج.م</strong></div>
+          <div><span>الشحن</span><strong id="checkoutShipping">يُحدد عبر واتساب</strong></div>
+          <div class="checkout-final-total"><span>مجموع المنتجات</span><strong id="checkoutTotal">0 ج.م</strong></div>
         </div>
-        <p class="checkout-shipping-note">يتم احتساب الشحن حسب المحافظة، ويُؤكد معك قبل التسليم.</p>
+        <p class="checkout-shipping-note">سعر الشحن وطريقة الدفع النهائية يُؤكدان معك عبر واتساب.</p>
         <button class="checkout-confirm-button" id="checkoutConfirmButton" type="submit" form="checkoutForm">
           <span>تأكيد الطلب</span>
           <span class="checkout-confirm-arrow" aria-hidden="true">←</span>
         </button>
-        <p class="checkout-demo-note">سيتم إرسال ملخص طلبك عبر واتساب للتأكيد النهائي.</p>
+        <p class="checkout-demo-note">افتح واتساب وأرسل ملخص الطلب للتأكيد النهائي مع رِمَاء.</p>
       </aside>
     </div>
   </aside>
@@ -540,7 +527,7 @@
     <div class="success-icon">✓</div>
     <p class="success-kicker">تمت مراجعة الطلب بنجاح</p>
     <h2 id="successTitle">شكرًا لثقتكِ برِمَاء</h2>
-    <p class="success-reference">رقم معاينة الطلب <strong id="orderNumber">RIM-0000</strong></p>
+    <p class="success-reference">رقم الطلب <strong id="orderNumber">RIM-0000</strong></p>
     <div class="success-summary" id="successSummary"></div>
     <p class="success-demo" id="successMessage">تم تجهيز طلبك وإرساله إلى واتساب رِمَاء. يرجى إرسال الرسالة للتأكيد النهائي.</p>
     <button class="primary-button" id="closeSuccess" type="button">العودة للتسوق</button>
