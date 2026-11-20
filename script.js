@@ -1599,6 +1599,7 @@ const checkoutDrawer = document.getElementById("checkoutDrawer");
 const successModal = document.getElementById("successModal");
 const checkoutForm = document.getElementById("checkoutForm");
 const checkoutConfirmButton = document.getElementById("checkoutConfirmButton");
+const paymentInstructions = document.getElementById("paymentInstructions");
 let checkoutSubmitting = false;
 const checkoutShippingRates = {
   "القاهرة": 50,
@@ -1630,6 +1631,12 @@ const checkoutShippingRates = {
   "سوهاج": 95
 };
 let checkoutShipping = 0;
+
+checkoutForm.querySelectorAll("[name='payment']").forEach(option => {
+  option.addEventListener("change", () => {
+    paymentInstructions.hidden = option.value === "الدفع عند الاستلام";
+  });
+});
 
 function getCheckoutShipping(governorate) {
   return checkoutShippingRates[governorate] ?? 80;
@@ -1786,6 +1793,11 @@ document.getElementById("checkoutForm").addEventListener("submit", (event) => {
       <p>المجموع يشمل الشحن: ${formatCurrency(shipping)}. سيتم تأكيد الطلب عبر واتساب.</p>
     `;
     const formData = new FormData(checkoutForm);
+    const paymentMethod = String(formData.get("payment") || "");
+    const isTransferPayment = paymentMethod === "فودافون كاش" || paymentMethod === "إنستا باي";
+    document.getElementById("successMessage").textContent = isTransferPayment
+      ? "تم تجهيز طلبك. بعد التحويل، أرفق صورة الإيصال يدويًا في محادثة واتساب وأرسلها لتأكيد الدفع."
+      : "تم تجهيز طلبك وإرساله إلى واتساب رِمَاء. يرجى إرسال الرسالة للتأكيد النهائي.";
     const orderLines = cart.map(item =>
       `- ${item.name} × ${formatCheckoutQuantity(item.quantity)} — ${formatCurrency(
         sanitizeCartPrice(item.priceNumber) * parseCartQuantity(item.quantity)
@@ -1799,6 +1811,8 @@ document.getElementById("checkoutForm").addEventListener("submit", (event) => {
       `المجموع الفرعي: ${formatCurrency(subtotal)}`,
       `الشحن: ${formatCurrency(shipping)}`,
       `الإجمالي: ${formatCurrency(total)}`,
+      `طريقة الدفع: ${paymentMethod}`,
+      ...(isTransferPayment ? ["بعد التحويل، سأرفق صورة الإيصال في هذه المحادثة لتأكيد الدفع."] : []),
       "",
       `الاسم: ${formData.get("name")}`,
       `الهاتف: ${formData.get("phone")}`,

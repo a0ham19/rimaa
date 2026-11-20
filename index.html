@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>رِمَاء | شموع وعطور منزلية</title>
   <meta name="description" content="رِمَاء — شموع وعطور منزلية بتفاصيل شرقية ودفء الإحساس.">
-  <meta name="theme-color" content="#49363a">
+  <meta name="theme-color" content="#4a2d39">
   <meta property="og:title" content="رِمَاء | شموع وعطور منزلية">
   <meta property="og:description" content="شموع وعطور منزلية بتفاصيل شرقية ودفء الإحساس.">
   <meta property="og:type" content="website">
@@ -14,7 +14,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -501,6 +501,19 @@
             <input type="radio" name="payment" value="الدفع عند الاستلام" checked>
             <span><strong>الدفع عند الاستلام</strong><small>سيتم تأكيد طريقة الدفع أثناء التواصل</small></span>
           </label>
+          <label class="payment-option">
+            <input type="radio" name="payment" value="فودافون كاش">
+            <span><strong>فودافون كاش</strong><small>حوّل قيمة الطلب إلى الرقم الموضح أدناه</small></span>
+          </label>
+          <label class="payment-option">
+            <input type="radio" name="payment" value="إنستا باي">
+            <span><strong>إنستا باي</strong><small>حوّل قيمة الطلب إلى الرقم الموضح أدناه</small></span>
+          </label>
+          <div class="payment-instructions" id="paymentInstructions" hidden aria-live="polite">
+            <p>رقم التحويل</p>
+            <strong dir="ltr">01013950918</strong>
+            <small>بعد التحويل، اضغط «تأكيد الطلب» لفتح واتساب، ثم أرفق صورة الإيصال يدويًا في المحادثة وأرسلها لتأكيد الدفع.</small>
+          </div>
         </section>
       </form>
 
@@ -529,7 +542,7 @@
     <h2 id="successTitle">شكرًا لثقتكِ برِمَاء</h2>
     <p class="success-reference">رقم معاينة الطلب <strong id="orderNumber">RIM-0000</strong></p>
     <div class="success-summary" id="successSummary"></div>
-    <p class="success-demo">تم تجهيز طلبك وإرساله إلى واتساب رِمَاء. يرجى إرسال الرسالة للتأكيد النهائي.</p>
+    <p class="success-demo" id="successMessage">تم تجهيز طلبك وإرساله إلى واتساب رِمَاء. يرجى إرسال الرسالة للتأكيد النهائي.</p>
     <button class="primary-button" id="closeSuccess" type="button">العودة للتسوق</button>
   </div>
 
