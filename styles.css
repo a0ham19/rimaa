@@ -2058,3 +2058,38 @@ body {
 .footer-bottom a {
   color: #f0e0e7;
 }
+
+@media (max-width: 520px) {
+  .nav > a,
+  .shop-menu > button {
+    min-width: 44px;
+  }
+
+  .text-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .product-title-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .add-button,
+  .catalog-sort select,
+  .catalog-filter-chip {
+    min-height: 44px;
+  }
+
+  .catalog-search-control button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .product-quantity {
+    min-width: 126px;
+    grid-template-columns: 44px minmax(30px, 1fr) 44px;
+  }
+}
